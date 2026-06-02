@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>計画ベースライン比較</title>
+  <link rel="stylesheet" href="/baseline/style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <p class="eyebrow">OpenProject extension</p>
+        <h1>計画ベースライン比較</h1>
+        <p id="project-name" class="subtitle"></p>
+      </div>
+      <a id="back-link" class="back-link" href="/">OpenProjectへ戻る</a>
+    </header>
+
+    <section class="controls panel">
+      <label>
+        比較するベースライン
+        <select id="baseline-select"></select>
+      </label>
+      <p id="baseline-note"></p>
+    </section>
+
+    <section class="snapshot panel">
+      <div>
+        <h2>現在計画を保存</h2>
+        <p>現在のチケット日程と工数を、新しい比較基準として保存します。</p>
+      </div>
+      <label>
+        名前
+        <input id="snapshot-label" maxlength="100" placeholder="例: Sprint 1 開始時点">
+      </label>
+      <label>
+        メモ
+        <input id="snapshot-note" maxlength="500" placeholder="任意">
+      </label>
+      <button id="snapshot-button" type="button">スナップショットを作成</button>
+      <p id="snapshot-message" class="message"></p>
+    </section>
+
+    <section class="summary">
+      <article><span>変更</span><strong id="changed-count">-</strong></article>
+      <article><span>追加</span><strong id="added-count">-</strong></article>
+      <article><span>削除</span><strong id="removed-count">-</strong></article>
+      <article><span>工数差分</span><strong id="hours-diff">-</strong></article>
+    </section>
+
+    <section class="panel gantt-panel">
+      <div class="gantt-heading">
+        <div>
+          <h2>ガントチャート比較</h2>
+          <p>上段の薄いバーがベースライン、下段の濃いバーが現在計画です。</p>
+        </div>
+        <div class="legend">
+          <span><i class="legend-swatch legend-baseline"></i>ベースライン</span>
+          <span><i class="legend-swatch legend-current"></i>現在計画</span>
+          <span><i class="legend-swatch legend-added"></i>追加</span>
+          <span><i class="legend-swatch legend-removed"></i>削除</span>
+        </div>
+      </div>
+      <div id="gantt-chart" class="gantt-chart"></div>
+    </section>
+
+    <section class="panel">
+      <div class="comparison-heading">
+        <h2>変更タスク一覧</h2>
+        <p>選択したベースラインと現在計画を比較し、変更・追加・削除されたチケットだけを表示します。</p>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>種別</th>
+            <th class="ticket-column">チケット</th>
+            <th>担当者</th>
+            <th>開始日</th>
+            <th>終了日</th>
+            <th>予定工数</th>
+            <th>状態</th>
+          </tr>
+        </thead>
+        <tbody id="comparison-body"></tbody>
+      </table>
+      <p id="empty-message" class="empty" hidden>差分はありません。</p>
+    </section>
+  </main>
+  <script src="/baseline/app.js"></script>
+</body>
+</html>

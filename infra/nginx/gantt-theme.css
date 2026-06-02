@@ -1,0 +1,89 @@
+/*
+ * Local OpenProject Gantt refresh.
+ * This file is served by the reverse proxy so upgrades do not overwrite it.
+ */
+:root {
+  --pj-grid-line: #e2e8f0;
+  --pj-grid-strong: #cbd5e1;
+  --pj-weekend: #f8fafc;
+  --pj-today: #ef4444;
+}
+
+/* Keep the dense planning surface quiet and readable. */
+.work-packages-tabletimeline--timeline-side,
+.wp-table-timeline--container,
+.wp-table-timeline--body {
+  background: #fff;
+}
+
+.wp-timeline--header-element,
+.wp-timeline--header-middle-element,
+.wp-timeline--header-day-element,
+.wp-timeline--header-top-bold-element {
+  color: #334155;
+  background: #f8fafc;
+  border-color: var(--pj-grid-line) !important;
+  font-weight: 600;
+}
+
+.wp-timeline--grid-element,
+.wp-timeline-cell {
+  border-color: var(--pj-grid-line) !important;
+}
+
+.wp-timeline--non-working-day {
+  background: var(--pj-weekend) !important;
+}
+
+.wp-timeline--grid-element_highlight {
+  background: #eff6ff !important;
+}
+
+#wp-timeline-static-element-today-line {
+  border-color: var(--pj-today) !important;
+  opacity: .9;
+}
+
+/* Modernize task bars without replacing meaningful status colors. */
+.timeline-element,
+.timeline-element--bg {
+  border-radius: 6px !important;
+}
+
+.timeline-element {
+  filter: saturate(.9);
+}
+
+.timeline-element--bg {
+  box-shadow: 0 1px 2px rgb(15 23 42 / 18%);
+}
+
+/* Match the left-hand work package table to the softer timeline grid. */
+.work-packages-tabletimeline--table-side {
+  border-color: var(--pj-grid-strong) !important;
+}
+
+.work-packages-tabletimeline--table-side table tbody tr:hover,
+.wp-table--row:hover {
+  background: #eff6ff !important;
+}
+
+.work-packages-tabletimeline--timeline--resizer {
+  background: #cbd5e1 !important;
+}
+
+/*
+ * This installation intentionally uses Community Edition only.
+ * Hide upsell affordances that can still be rendered beside unavailable
+ * Enterprise add-ons after the server-side banners are disabled.
+ */
+.enterprise-add-on,
+.enterprise-add-on--icon,
+.enterprise-add-on--upsell,
+.enterprise-upsell,
+[class*="enterprise-add-on"],
+[class*="enterprise-upsell"],
+[data-test-selector*="enterprise-add-on"],
+[data-test-selector*="enterprise-upsell"] {
+  display: none !important;
+}
