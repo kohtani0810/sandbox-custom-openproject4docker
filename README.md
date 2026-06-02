@@ -1,4 +1,4 @@
-# OpenProject PJ 管理環境
+# OpenProject Sandbox 環境
 
 OpenProject Community Edition をベースにした、小規模PJ向けの進捗管理環境です。
 
