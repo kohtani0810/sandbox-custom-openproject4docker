@@ -79,6 +79,42 @@ http://localhost:8080
 
 ログイン直後に管理者パスワードを変更してください。
 
+## LAN内の別PCから接続する
+
+OpenProjectを構築したWindows PCと同じLANに接続している別PCからは、構築したWindows PCのIPv4アドレスを使ってアクセスします。
+
+### 1. 構築したWindows PCのIPv4アドレスを確認する
+
+構築したWindows PCでPowerShellまたはコマンドプロンプトを開き、次のコマンドを実行します。
+
+```powershell
+ipconfig
+```
+
+表示結果から、利用中のネットワークアダプターに表示される `IPv4 アドレス` を確認します。実際のIPアドレスは環境ごとに異なるため、READMEには記載しません。
+
+### 2. 別PCのブラウザからアクセスする
+
+別PCのブラウザで、次の形式のURLを開きます。
+
+```text
+http://<構築したWindows-PCのIPアドレス>:8080
+```
+
+`<構築したWindows-PCのIPアドレス>` には、手順1で確認したIPv4アドレスを入力します。
+
+### 3. 接続できない場合に確認する項目
+
+接続できない場合は、次の点を確認してください。
+
+- 構築したWindows PC側で `http://localhost:8080` を開けること
+- 構築したWindows PCと別PCが同じLANに接続されていること
+- 別PCで入力したURLが `http://<構築したWindows-PCのIPアドレス>:8080` の形式になっていること
+- 構築したWindows PCで `docker compose ps` を実行し、各コンテナが `Up` または `running` になっていること
+- 構築したWindows PCのWindowsファイアウォールやセキュリティソフトで、TCP 8080番ポートへの受信接続がブロックされていないこと
+
+Windowsファイアウォールで許可が必要な場合は、構築したWindows PCの受信規則でTCP 8080番ポートを許可します。検証用のLAN接続に限定するため、必要に応じてプロファイルをプライベートネットワークに限定し、利用後は不要な許可を削除してください。
+
 ## Docker Engine 未導入の場合
 
 ### WSL 2 上の Ubuntu
