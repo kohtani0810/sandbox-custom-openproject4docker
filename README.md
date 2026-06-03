@@ -109,6 +109,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Configure-WslPortForward.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\Configure-WslPortForward.ps1 -ListenAddress <WindowsのIP>
 ```
 
+WSLディストリビューション名が `Ubuntu` 以外の場合は、名前を指定します。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Configure-WslPortForward.ps1 -WslDistro <WSLディストリ名>
+```
+
 ### 3. 別PCのブラウザからアクセスする
 
 ```text

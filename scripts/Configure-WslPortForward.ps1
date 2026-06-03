@@ -2,9 +2,11 @@ param(
     [string]$ListenAddress,
     [int]$ExternalPort = 18080,
     [int]$InternalPort = 8080,
+    [string]$WslDistro = "Ubuntu",
     [string]$ProjectRoot = (Split-Path -Parent $PSScriptRoot),
     [switch]$Remove,
-    [switch]$SkipComposeRestart
+    [switch]$SkipComposeRestart,
+    [switch]$NetworkOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -72,35 +74,46 @@ function Set-EnvValue {
 }
 
 function Invoke-Compose {
-    param([string]$Root)
+    param(
+        [string]$Root,
+        [string]$Distro
+    )
 
-    $wslRoot = & wsl.exe wslpath -a $Root
+    $wslRoot = & wsl.exe -d $Distro wslpath -a $Root
     if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($wslRoot)) {
-        throw "Could not resolve the project path from WSL: $Root"
+        throw "Could not resolve the project path from WSL distro '$Distro': $Root"
     }
 
-    & wsl.exe -- bash -lc "cd '$($wslRoot.Trim())' && docker compose up -d --force-recreate openproject web"
+    & wsl.exe -d $Distro -- bash -lc "cd '$($wslRoot.Trim())' && docker compose up -d --force-recreate openproject web"
     if ($LASTEXITCODE -ne 0) {
-        throw "docker compose failed. Confirm Docker Engine is running in WSL."
+        throw "docker compose failed. Confirm Docker Engine is running in WSL distro '$Distro'."
     }
 }
 
-if (-not (Test-Administrator)) {
+function Invoke-NetworkSetupAsAdmin {
+    param(
+        [string]$Address,
+        [int]$ListenPort,
+        [int]$TargetPort,
+        [string]$Root,
+        [switch]$RemoveRule
+    )
+
     $argsList = @(
         "-NoProfile",
         "-ExecutionPolicy", "Bypass",
         "-File", "`"$PSCommandPath`"",
-        "-ExternalPort", "$ExternalPort",
-        "-InternalPort", "$InternalPort",
-        "-ProjectRoot", "`"$ProjectRoot`""
+        "-ListenAddress", "$Address",
+        "-ExternalPort", "$ListenPort",
+        "-InternalPort", "$TargetPort",
+        "-WslDistro", "$WslDistro",
+        "-ProjectRoot", "`"$Root`"",
+        "-NetworkOnly"
     )
 
-    if ($ListenAddress) { $argsList += @("-ListenAddress", "$ListenAddress") }
-    if ($Remove) { $argsList += "-Remove" }
-    if ($SkipComposeRestart) { $argsList += "-SkipComposeRestart" }
+    if ($RemoveRule) { $argsList += "-Remove" }
 
     Start-Process -FilePath powershell.exe -Verb RunAs -Wait -ArgumentList $argsList
-    exit
 }
 
 if (-not $ListenAddress) {
@@ -111,30 +124,46 @@ $ruleName = "OpenProject WSL $ExternalPort"
 $envPath = Join-Path $ProjectRoot ".env"
 
 if ($Remove) {
+    if (-not (Test-Administrator)) {
+        Invoke-NetworkSetupAsAdmin -Address $ListenAddress -ListenPort $ExternalPort -TargetPort $InternalPort -Root $ProjectRoot -RemoveRule
+        exit
+    }
+
     netsh interface portproxy delete v4tov4 listenaddress=$ListenAddress listenport=$ExternalPort | Out-Null
     Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue | Remove-NetFirewallRule
     Write-Host "Removed port forwarding and firewall rule for $ListenAddress`:$ExternalPort."
     exit
 }
 
+if ($NetworkOnly) {
+    if (-not (Test-Administrator)) {
+        throw "NetworkOnly mode must run as administrator."
+    }
+
+    netsh interface portproxy delete v4tov4 listenaddress=$ListenAddress listenport=$ExternalPort | Out-Null
+    netsh interface portproxy add v4tov4 listenaddress=$ListenAddress listenport=$ExternalPort connectaddress=127.0.0.1 connectport=$InternalPort | Out-Null
+
+    Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+    New-NetFirewallRule `
+        -DisplayName $ruleName `
+        -Direction Inbound `
+        -Action Allow `
+        -Protocol TCP `
+        -LocalAddress $ListenAddress `
+        -LocalPort $ExternalPort `
+        -Profile Private | Out-Null
+
+    Write-Host "Configured port forwarding: $ListenAddress`:$ExternalPort -> 127.0.0.1:$InternalPort"
+    exit
+}
+
 Set-EnvValue -Path $envPath -Name "OPENPROJECT_HOST_NAME" -Value "$ListenAddress`:$ExternalPort"
 Set-EnvValue -Path $envPath -Name "PORT" -Value "$InternalPort"
 
-netsh interface portproxy delete v4tov4 listenaddress=$ListenAddress listenport=$ExternalPort | Out-Null
-netsh interface portproxy add v4tov4 listenaddress=$ListenAddress listenport=$ExternalPort connectaddress=127.0.0.1 connectport=$InternalPort | Out-Null
-
-Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue | Remove-NetFirewallRule
-New-NetFirewallRule `
-    -DisplayName $ruleName `
-    -Direction Inbound `
-    -Action Allow `
-    -Protocol TCP `
-    -LocalAddress $ListenAddress `
-    -LocalPort $ExternalPort `
-    -Profile Private | Out-Null
+Invoke-NetworkSetupAsAdmin -Address $ListenAddress -ListenPort $ExternalPort -TargetPort $InternalPort -Root $ProjectRoot
 
 if (-not $SkipComposeRestart) {
-    Invoke-Compose -Root $ProjectRoot
+    Invoke-Compose -Root $ProjectRoot -Distro $WslDistro
 }
 
 Write-Host "OpenProject external URL: http://$ListenAddress`:$ExternalPort"
