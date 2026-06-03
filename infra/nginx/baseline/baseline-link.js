@@ -5,14 +5,34 @@
   if (!project) return;
 
   const reportUrl = `/baseline/?project=${encodeURIComponent(project)}`;
+  const buttonId = "pj-plan-compare-button";
 
   const style = document.createElement("style");
   style.textContent = `
-    .pj-baseline-replacement {
+    .pj-hidden-baseline-button {
+      display: none !important;
+    }
+    .pj-plan-compare-button {
       cursor: pointer;
+    }
+    .pj-plan-compare-floating {
+      position: fixed;
+      top: 72px;
+      right: 24px;
+      z-index: 1000;
+      padding: 7px 12px;
+      border: 1px solid #0969da;
+      border-radius: 6px;
+      color: #fff;
+      background: #0969da;
+      font-weight: 700;
+      box-shadow: 0 4px 12px rgb(15 23 42 / 16%);
     }
   `;
   document.head.appendChild(style);
+
+  const buttonText = "計画比較";
+  const titleText = "保存したベースラインと現在計画を比較";
 
   const isBaselineButton = element => {
     const text = element.textContent?.trim() || "";
@@ -25,39 +45,82 @@
     return /ベースライン|baseline/i.test(`${text} ${attributes}`);
   };
 
-  const replaceBaselineButton = () => {
-    const candidates = document.querySelectorAll("button, a");
-    for (const element of candidates) {
-      if (!isBaselineButton(element)) continue;
-      if (element.classList.contains("pj-baseline-replacement")) return;
+  const wireButton = button => {
+    button.id = buttonId;
+    button.classList.add("pj-plan-compare-button");
+    button.setAttribute("aria-label", buttonText);
+    button.setAttribute("title", titleText);
+    button.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      window.location.assign(reportUrl);
+    }, true);
+  };
 
-      element.classList.add("pj-baseline-replacement");
-      element.setAttribute("aria-label", "計画比較");
-      element.setAttribute("title", "保存したベースラインと現在計画を比較");
-      element.removeAttribute("aria-haspopup");
-      element.removeAttribute("aria-expanded");
-      element.removeAttribute("popovertarget");
-
-      const textNodes = [...element.querySelectorAll("span")].filter(node =>
-        /ベースライン|baseline/i.test(node.textContent || "")
-      );
-      if (textNodes.length) {
-        textNodes[textNodes.length - 1].textContent = "計画比較";
-      } else {
-        element.textContent = "計画比較";
-      }
-
-      element.addEventListener("click", event => {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        window.location.assign(reportUrl);
-      }, true);
-      return;
+  const setButtonText = button => {
+    const label = button.querySelector(".Button-label, span");
+    if (label) {
+      label.textContent = buttonText;
+    } else {
+      button.textContent = buttonText;
     }
   };
 
-  replaceBaselineButton();
-  new MutationObserver(replaceBaselineButton).observe(document.body, {
+  const createButtonFrom = baselineButton => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = baselineButton?.className || "Button Button--medium";
+    if (!button.className.includes("Button")) {
+      button.className += " Button Button--medium";
+    }
+    button.innerHTML = `<span class="Button-content"><span class="Button-label">${buttonText}</span></span>`;
+    wireButton(button);
+    return button;
+  };
+
+  const findToolbar = () => document.querySelector(
+    ".toolbar-container, .toolbar-items, .op-toolbar, [data-test-selector*='toolbar'], main"
+  );
+
+  const ensurePlanCompareButton = () => {
+    if (document.getElementById(buttonId)) return;
+
+    const baselineButton = [...document.querySelectorAll("button, a")].find(isBaselineButton);
+    if (baselineButton) {
+      const button = createButtonFrom(baselineButton);
+      baselineButton.classList.add("pj-hidden-baseline-button");
+      baselineButton.insertAdjacentElement("beforebegin", button);
+      return;
+    }
+
+    if (!window.location.pathname.includes("/gantt")) return;
+
+    const toolbar = findToolbar();
+    if (!toolbar) return;
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "pj-plan-compare-floating";
+    button.textContent = buttonText;
+    wireButton(button);
+    toolbar.appendChild(button);
+  };
+
+  const hideBaselineButtons = () => {
+    [...document.querySelectorAll("button, a")]
+      .filter(isBaselineButton)
+      .forEach(element => element.classList.add("pj-hidden-baseline-button"));
+  };
+
+  const refresh = () => {
+    ensurePlanCompareButton();
+    hideBaselineButtons();
+    const button = document.getElementById(buttonId);
+    if (button) setButtonText(button);
+  };
+
+  refresh();
+  new MutationObserver(refresh).observe(document.body, {
     childList: true,
     subtree: true
   });

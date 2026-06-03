@@ -79,28 +79,63 @@ function Set-EnvValue {
 
     $line = "${Name}=${Value}"
 
-    if (Test-Path -LiteralPath $Path) {
-        $content = Get-Content -LiteralPath $Path -Encoding UTF8
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    $content = if (Test-Path -LiteralPath $Path) {
+        [string[]][System.IO.File]::ReadAllLines($Path, [Text.Encoding]::UTF8)
     } else {
-        $content = @()
+        [string[]]@()
     }
-
     $pattern = '^\s*' + [regex]::Escape($Name) + '='
     $found = $false
-    $updated = foreach ($item in $content) {
+    $updated = @(
+      foreach ($item in $content) {
         if ($item -match $pattern) {
             $found = $true
             $line
         } else {
             $item
         }
-    }
+      }
+    )
 
     if (-not $found) {
-        $updated += $line
+        $updated = @($updated) + $line
     }
 
-    Set-Content -LiteralPath $Path -Value $updated -Encoding UTF8
+    [System.IO.File]::WriteAllLines($Path, [string[]]$updated, $utf8NoBom)
+}
+
+function New-SecretKey {
+    $bytes = New-Object byte[] 64
+    $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $rng.GetBytes($bytes)
+    } finally {
+        $rng.Dispose()
+    }
+
+    return (($bytes | ForEach-Object { $_.ToString("x2") }) -join "")
+}
+
+function Initialize-EnvFile {
+    param([string]$Root)
+
+    $envPath = Join-Path $Root ".env"
+    if (Test-Path -LiteralPath $envPath -PathType Leaf) {
+        return
+    }
+
+    $examplePath = Join-Path $Root ".env.example"
+    if (-not (Test-Path -LiteralPath $examplePath -PathType Leaf)) {
+        throw ".env was not found and .env.example is missing."
+    }
+
+    $secret = New-SecretKey
+    $content = [System.IO.File]::ReadAllText($examplePath, [Text.Encoding]::UTF8)
+    $content = $content.Replace("replace-with-a-random-secret", $secret)
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($envPath, $content, $utf8NoBom)
+    Write-Host "Created .env with a random SECRET_KEY_BASE."
 }
 
 function Test-ProjectRoot {
@@ -171,6 +206,7 @@ if (-not $ListenAddress) {
 
 if (-not $NetworkOnly -and -not $Remove) {
     Test-ProjectRoot -Root $ProjectRoot
+    Initialize-EnvFile -Root $ProjectRoot
 }
 
 $ruleName = "OpenProject WSL $ExternalPort"
