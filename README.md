@@ -1,4 +1,4 @@
-# OpenProject Sandbox 環境
+# OpenProject PJ 管理環境
 
 OpenProject Community Edition をベースにした、小規模PJ向けの進捗管理環境です。
 
@@ -81,39 +81,60 @@ http://localhost:8080
 
 ## LAN内の別PCから接続する
 
-OpenProjectを構築したWindows PCと同じLANに接続している別PCからは、構築したWindows PCのIPv4アドレスを使ってアクセスします。
+WSL 2 上の Docker で起動している OpenProject をLAN内の別PCから開く場合は、Windows側でポートフォワードとファイアウォール許可を設定します。
 
-### 1. 構築したWindows PCのIPv4アドレスを確認する
+外部からのアクセスURLは `http://<WindowsのIP>:18080` です。Docker側の待ち受けは通常どおり `8080` のままにして、Windows側で `18080 -> 8080` に転送します。
 
-構築したWindows PCでPowerShellまたはコマンドプロンプトを開き、次のコマンドを実行します。
+### 1. Windows側のIPv4アドレスを確認する
+
+PowerShellまたはコマンドプロンプトで確認します。
 
 ```powershell
 ipconfig
 ```
 
-表示結果から、利用中のネットワークアダプターに表示される `IPv4 アドレス` を確認します。実際のIPアドレスは環境ごとに異なるため、READMEには記載しません。
+利用中のネットワークアダプターに表示される `IPv4 アドレス` を確認します。実際のIPアドレスは環境ごとに異なるため、READMEには記載しません。
 
-### 2. 別PCのブラウザからアクセスする
+### 2. ポートフォワードを設定する
 
-別PCのブラウザで、次の形式のURLを開きます。
+PowerShellで実行します。管理者権限が必要な場合はUAC確認が表示されます。
 
-```text
-http://<構築したWindows-PCのIPアドレス>:8080
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Configure-WslPortForward.ps1
 ```
 
-`<構築したWindows-PCのIPアドレス>` には、手順1で確認したIPv4アドレスを入力します。
+自動検出されたIPが意図と違う場合は、接続させたいWindows側IPを指定します。
 
-### 3. 接続できない場合に確認する項目
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Configure-WslPortForward.ps1 -ListenAddress <WindowsのIP>
+```
 
-接続できない場合は、次の点を確認してください。
+### 3. 別PCのブラウザからアクセスする
 
-- 構築したWindows PC側で `http://localhost:8080` を開けること
+```text
+http://<WindowsのIP>:18080
+```
+
+### 4. 接続できない場合に確認する項目
+
+- 構築したWindows PC側で `http://localhost:8080` またはスクリプトが表示したURLを開けること
 - 構築したWindows PCと別PCが同じLANに接続されていること
-- 別PCで入力したURLが `http://<構築したWindows-PCのIPアドレス>:8080` の形式になっていること
+- 別PCで入力したURLが `http://<WindowsのIP>:18080` の形式になっていること
 - 構築したWindows PCで `docker compose ps` を実行し、各コンテナが `Up` または `running` になっていること
-- 構築したWindows PCのWindowsファイアウォールやセキュリティソフトで、TCP 8080番ポートへの受信接続がブロックされていないこと
+- Windowsのネットワークプロファイルがプライベートになっていること
+- WindowsファイアウォールやセキュリティソフトでTCP 18080番ポートへの受信接続がブロックされていないこと
 
-Windowsファイアウォールで許可が必要な場合は、構築したWindows PCの受信規則でTCP 8080番ポートを許可します。検証用のLAN接続に限定するため、必要に応じてプロファイルをプライベートネットワークに限定し、利用後は不要な許可を削除してください。
+### 5. 転送設定を削除する
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Configure-WslPortForward.ps1 -ListenAddress <WindowsのIP> -Remove
+```
+
+削除後にローカル利用へ戻す場合は、`.env` の `OPENPROJECT_HOST_NAME` を `localhost:8080` に戻してから再起動します。
+
+```bash
+docker compose up -d --force-recreate openproject web
+```
 
 ## Docker Engine 未導入の場合
 
