@@ -17,6 +17,36 @@ function Test-Administrator {
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+function ConvertTo-PowerShellLiteral {
+    param([string]$Value)
+
+    return "'" + ($Value -replace "'", "''") + "'"
+}
+
+function ConvertTo-BashLiteral {
+    param([string]$Value)
+
+    return "'" + ($Value -replace "'", "'`"`"'`"`"'") + "'"
+}
+
+function ConvertTo-WslPath {
+    param([string]$Path)
+
+    $resolved = (Resolve-Path -LiteralPath $Path).Path
+
+    if ($resolved -match '^([A-Za-z]):\\(.*)$') {
+        $drive = $Matches[1].ToLowerInvariant()
+        $rest = $Matches[2] -replace '\\', '/'
+        return "/mnt/$drive/$rest"
+    }
+
+    if ($resolved -match '^\\\\') {
+        throw "UNC paths are not supported by this script: $resolved"
+    }
+
+    return $resolved -replace '\\', '/'
+}
+
 function Get-DefaultListenAddress {
     $addresses = Get-NetIPAddress -AddressFamily IPv4 |
         Where-Object {
@@ -100,12 +130,9 @@ function Invoke-Compose {
         [string]$Distro
     )
 
-    $wslRoot = & wsl.exe -d $Distro wslpath -a $Root
-    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($wslRoot)) {
-        throw "Could not resolve the project path from WSL distro '$Distro': $Root"
-    }
-
-    & wsl.exe -d $Distro -- bash -lc "cd '$($wslRoot.Trim())' && docker compose up -d --force-recreate openproject web"
+    $wslRoot = ConvertTo-WslPath -Path $Root
+    $quotedWslRoot = ConvertTo-BashLiteral -Value $wslRoot
+    & wsl.exe -d $Distro -- bash -lc "cd $quotedWslRoot && docker compose up -d --force-recreate openproject web"
     if ($LASTEXITCODE -ne 0) {
         throw "docker compose failed. Confirm Docker Engine is running in WSL distro '$Distro'."
     }
@@ -116,23 +143,24 @@ function Invoke-NetworkSetupAsAdmin {
         [string]$Address,
         [int]$ListenPort,
         [int]$TargetPort,
-        [string]$Root,
         [switch]$RemoveRule
     )
 
+    $scriptPath = ConvertTo-PowerShellLiteral -Value $PSCommandPath
+    $addressArg = ConvertTo-PowerShellLiteral -Value $Address
+    $distroArg = ConvertTo-PowerShellLiteral -Value $WslDistro
+
+    $command = "& $scriptPath -ListenAddress $addressArg -ExternalPort $ListenPort -InternalPort $TargetPort -WslDistro $distroArg -NetworkOnly"
+    if ($RemoveRule) {
+        $command += " -Remove"
+    }
+
+    $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
     $argsList = @(
         "-NoProfile",
         "-ExecutionPolicy", "Bypass",
-        "-File", "`"$PSCommandPath`"",
-        "-ListenAddress", "$Address",
-        "-ExternalPort", "$ListenPort",
-        "-InternalPort", "$TargetPort",
-        "-WslDistro", "$WslDistro",
-        "-ProjectRoot", "`"$Root`"",
-        "-NetworkOnly"
+        "-EncodedCommand", $encodedCommand
     )
-
-    if ($RemoveRule) { $argsList += "-Remove" }
 
     Start-Process -FilePath powershell.exe -Verb RunAs -Wait -ArgumentList $argsList
 }
@@ -141,7 +169,7 @@ if (-not $ListenAddress) {
     $ListenAddress = Get-DefaultListenAddress
 }
 
-if (-not $NetworkOnly) {
+if (-not $NetworkOnly -and -not $Remove) {
     Test-ProjectRoot -Root $ProjectRoot
 }
 
@@ -150,7 +178,7 @@ $envPath = Join-Path $ProjectRoot ".env"
 
 if ($Remove) {
     if (-not (Test-Administrator)) {
-        Invoke-NetworkSetupAsAdmin -Address $ListenAddress -ListenPort $ExternalPort -TargetPort $InternalPort -Root $ProjectRoot -RemoveRule
+        Invoke-NetworkSetupAsAdmin -Address $ListenAddress -ListenPort $ExternalPort -TargetPort $InternalPort -RemoveRule
         exit
     }
 
@@ -185,7 +213,7 @@ if ($NetworkOnly) {
 Set-EnvValue -Path $envPath -Name "OPENPROJECT_HOST_NAME" -Value "$ListenAddress`:$ExternalPort"
 Set-EnvValue -Path $envPath -Name "PORT" -Value "$InternalPort"
 
-Invoke-NetworkSetupAsAdmin -Address $ListenAddress -ListenPort $ExternalPort -TargetPort $InternalPort -Root $ProjectRoot
+Invoke-NetworkSetupAsAdmin -Address $ListenAddress -ListenPort $ExternalPort -TargetPort $InternalPort
 
 if (-not $SkipComposeRestart) {
     Invoke-Compose -Root $ProjectRoot -Distro $WslDistro
