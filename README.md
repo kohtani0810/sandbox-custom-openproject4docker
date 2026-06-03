@@ -99,6 +99,8 @@ ipconfig
 
 PowerShellで実行します。管理者権限が必要な場合はUAC確認が表示されます。
 
+リポジトリは `C:\Users\<ユーザー名>\Documents` など、通常ユーザーが書き込める場所に置いてください。`C:\env` などCドライブ直下のフォルダでは `.env` 更新時にアクセス拒否になることがあります。
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Configure-WslPortForward.ps1
 ```

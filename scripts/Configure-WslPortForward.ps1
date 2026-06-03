@@ -73,6 +73,27 @@ function Set-EnvValue {
     Set-Content -LiteralPath $Path -Value $updated -Encoding UTF8
 }
 
+function Test-ProjectRoot {
+    param([string]$Root)
+
+    if (-not (Test-Path -LiteralPath $Root -PathType Container)) {
+        throw "ProjectRoot does not exist: $Root"
+    }
+
+    $composePath = Join-Path $Root "compose.yaml"
+    if (-not (Test-Path -LiteralPath $composePath -PathType Leaf)) {
+        throw "compose.yaml was not found in ProjectRoot. Run this script from the repository root, or specify -ProjectRoot."
+    }
+
+    $probePath = Join-Path $Root ".codex-write-test"
+    try {
+        Set-Content -LiteralPath $probePath -Value "ok" -Encoding ASCII
+        Remove-Item -LiteralPath $probePath -Force
+    } catch {
+        throw "ProjectRoot is not writable: $Root. Move the repository under your user folder, for example C:\Users\<user>\Documents, or fix the folder permissions."
+    }
+}
+
 function Invoke-Compose {
     param(
         [string]$Root,
@@ -118,6 +139,10 @@ function Invoke-NetworkSetupAsAdmin {
 
 if (-not $ListenAddress) {
     $ListenAddress = Get-DefaultListenAddress
+}
+
+if (-not $NetworkOnly) {
+    Test-ProjectRoot -Root $ProjectRoot
 }
 
 $ruleName = "OpenProject WSL $ExternalPort"
