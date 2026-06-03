@@ -1,10 +1,15 @@
 (() => {
-  if (!window.location.pathname.includes("/projects/")) return;
+  const isProjectPage = window.location.pathname.includes("/projects/");
+  const isGanttPage = window.location.pathname.includes("/gantt");
+  if (!isProjectPage && !isGanttPage) return;
 
-  const project = window.location.pathname.split("/projects/")[1]?.split("/")[0];
-  if (!project) return;
+  const project = isProjectPage
+    ? window.location.pathname.split("/projects/")[1]?.split("/")[0]
+    : null;
 
-  const reportUrl = `/baseline/?project=${encodeURIComponent(project)}`;
+  const reportUrl = project
+    ? `/baseline/?project=${encodeURIComponent(project)}`
+    : "/baseline/";
   const buttonId = "pj-plan-compare-button";
 
   const style = document.createElement("style");
