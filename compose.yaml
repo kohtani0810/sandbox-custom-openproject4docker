@@ -15,6 +15,9 @@ services:
       - openproject_pgdata:/var/openproject/pgdata
       - openproject_assets:/var/openproject/assets
       - ./data/baselines:/app/tmp/pj-baselines
+      - ./infra/openproject:/opt/openproject-patches:ro
+    entrypoint: ["/bin/bash", "/opt/openproject-patches/entrypoint-with-patches.sh"]
+    command: ["./docker/prod/supervisord"]
 
   web:
     image: nginx:1.29-alpine
