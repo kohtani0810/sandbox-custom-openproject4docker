@@ -52,9 +52,11 @@ function Get-DefaultListenAddress {
         Where-Object {
             $_.IPAddress -notlike "127.*" -and
             $_.IPAddress -notlike "169.254.*" -and
+            $_.IPAddress -notmatch "^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\." -and
             $_.InterfaceAlias -notlike "vEthernet*" -and
             $_.InterfaceAlias -notlike "*WSL*" -and
             $_.InterfaceAlias -notlike "*Loopback*" -and
+            $_.InterfaceAlias -notlike "*Tailscale*" -and
             $_.AddressState -eq "Preferred"
         } |
         Sort-Object @{
