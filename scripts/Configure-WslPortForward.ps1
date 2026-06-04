@@ -70,6 +70,47 @@ function Get-DefaultListenAddress {
     return $addresses[0].IPAddress
 }
 
+function Normalize-ListenAddress {
+    param([string]$Address)
+
+    $value = $Address.Trim()
+    if (-not $value) {
+        throw "ListenAddress is empty."
+    }
+
+    if ($value -match '^[a-zA-Z][a-zA-Z0-9+.-]*://') {
+        try {
+            $uri = [Uri]$value
+            $value = $uri.Host
+        } catch {
+            throw "ListenAddress URL is invalid: $Address"
+        }
+    }
+
+    if ($value -match '[:/?#]') {
+        throw "ListenAddress must be an IPv4 address only, for example 192.168.1.116. Do not include http://, port, slash, or path."
+    }
+
+    $parsed = $null
+    if (-not [System.Net.IPAddress]::TryParse($value, [ref]$parsed) -or $parsed.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork) {
+        throw "ListenAddress must be an IPv4 address, for example 192.168.1.116: $Address"
+    }
+
+    return $value
+}
+
+function Test-OpenProjectHostName {
+    param([string]$HostName)
+
+    if ($HostName -match '^[a-zA-Z][a-zA-Z0-9+.-]*://') {
+        throw "OPENPROJECT_HOST_NAME must not include http:// or https://. Use IP:port, for example 192.168.1.116:18080."
+    }
+
+    if ($HostName -match '[/?#]') {
+        throw "OPENPROJECT_HOST_NAME must not include slash, path, query, or fragment. Use IP:port, for example 192.168.1.116:18080."
+    }
+}
+
 function Set-EnvValue {
     param(
         [string]$Path,
@@ -204,6 +245,12 @@ if (-not $ListenAddress) {
     $ListenAddress = Get-DefaultListenAddress
 }
 
+$originalListenAddress = $ListenAddress
+$ListenAddress = Normalize-ListenAddress -Address $ListenAddress
+if ($ListenAddress -ne $originalListenAddress) {
+    Write-Host "Normalized ListenAddress: $ListenAddress"
+}
+
 if (-not $NetworkOnly -and -not $Remove) {
     Test-ProjectRoot -Root $ProjectRoot
     Initialize-EnvFile -Root $ProjectRoot
@@ -246,7 +293,9 @@ if ($NetworkOnly) {
     exit
 }
 
-Set-EnvValue -Path $envPath -Name "OPENPROJECT_HOST_NAME" -Value "$ListenAddress`:$ExternalPort"
+$openProjectHostName = "$ListenAddress`:$ExternalPort"
+Test-OpenProjectHostName -HostName $openProjectHostName
+Set-EnvValue -Path $envPath -Name "OPENPROJECT_HOST_NAME" -Value $openProjectHostName
 Set-EnvValue -Path $envPath -Name "PORT" -Value "$InternalPort"
 
 Invoke-NetworkSetupAsAdmin -Address $ListenAddress -ListenPort $ExternalPort -TargetPort $InternalPort
