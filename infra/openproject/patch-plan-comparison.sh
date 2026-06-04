@@ -1,9 +1,9 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 patch_file() {
-  local file="$1"
-  [[ -f "$file" ]] || return 0
+  file="$1"
+  [ -f "$file" ] || return 0
 
   ruby -0777 -i -pe '
     gsub(/toggle_title:\s*ベースライン/, "toggle_title: 計画比較")
@@ -17,8 +17,8 @@ patch_file() {
 patch_file /app/config/locales/crowdin/js-ja.yml
 patch_file /app/config/locales/crowdin/js-en.yml
 
-find /app/public/assets/frontend -type f \( -name '*.js' -o -name '*.mjs' \) -print0 \
-  | while IFS= read -r -d '' file; do
+find /app/public/assets/frontend -type f \( -name '*.js' -o -name '*.mjs' \) -exec grep -IlE 'ベースライン|Baseline' {} + \
+  | while IFS= read -r file; do
       if grep -qE 'ベースライン|Baseline' "$file"; then
         patch_file "$file"
       fi

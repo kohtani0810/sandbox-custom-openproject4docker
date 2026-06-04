@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
-bash /opt/openproject-patches/patch-plan-comparison.sh
+sh /opt/openproject-patches/patch-plan-comparison.sh
 exec /app/docker/prod/entrypoint.sh "$@"

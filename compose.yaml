@@ -16,7 +16,7 @@ services:
       - openproject_assets:/var/openproject/assets
       - ./data/baselines:/app/tmp/pj-baselines
       - ./infra/openproject:/opt/openproject-patches:ro
-    entrypoint: ["/bin/bash", "/opt/openproject-patches/entrypoint-with-patches.sh"]
+    entrypoint: ["/bin/sh", "/opt/openproject-patches/entrypoint-with-patches.sh"]
     command: ["./docker/prod/supervisord"]
 
   web:
