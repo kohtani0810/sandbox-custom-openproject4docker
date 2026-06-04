@@ -16,7 +16,14 @@ services:
       - openproject_assets:/var/openproject/assets
       - ./data/baselines:/app/tmp/pj-baselines
       - ./infra/openproject:/opt/openproject-patches:ro
-    entrypoint: ["/bin/sh", "/opt/openproject-patches/entrypoint-with-patches.sh"]
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        tr -d '\r' < /opt/openproject-patches/patch-plan-comparison.sh > /tmp/patch-plan-comparison.sh
+        sh /tmp/patch-plan-comparison.sh
+        exec /app/docker/prod/entrypoint.sh "$@"
+      - openproject-entrypoint
     command: ["./docker/prod/supervisord"]
 
   web:
