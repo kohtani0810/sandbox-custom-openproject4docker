@@ -113,7 +113,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Configure-WslPortForward.ps1 
 
 `-ListenAddress` はWindows側のIPv4アドレスだけを指定します。`http://192.168.1.116:18080` のようなURL形式で渡した場合は、スクリプトがIPアドレス部分だけに正規化します。
 
-WSLディストリビューション名が `Ubuntu` 以外の場合は、名前を指定します。
+WSLディストリビューション名を指定しない場合は、Windowsの既定WSLディストリビューションを自動検出します。明示したい場合は、名前を指定します。
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Configure-WslPortForward.ps1 -WslDistro <WSLディストリ名>

@@ -2,7 +2,7 @@ param(
     [string]$ListenAddress,
     [int]$ExternalPort = 18080,
     [int]$InternalPort = 8080,
-    [string]$WslDistro = "Ubuntu",
+    [string]$WslDistro = "",
     [string]$ProjectRoot = (Split-Path -Parent $PSScriptRoot),
     [switch]$Remove,
     [switch]$SkipComposeRestart,
@@ -97,6 +97,63 @@ function Normalize-ListenAddress {
     }
 
     return $value
+}
+
+function Get-DefaultWslDistro {
+    $output = & wsl.exe --list --verbose
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not list WSL distributions. Confirm WSL is installed."
+    }
+
+    $firstDistro = $null
+    $defaultDistro = $null
+    $projectDistro = $null
+    foreach ($line in $output) {
+        $clean = ($line -replace "`0", "").Trim()
+        if (-not $clean -or $clean -match '^NAME\s+STATE\s+VERSION$') {
+            continue
+        }
+
+        if ($clean -match '^\*\s*(\S+)') {
+            $defaultDistro = $Matches[1]
+            if ($Matches[1] -eq "Ubuntu-openPJ") {
+                $projectDistro = $Matches[1]
+            }
+            continue
+        }
+
+        if (-not $firstDistro -and $clean -match '^(\S+)') {
+            $firstDistro = $Matches[1]
+        }
+
+        if ($clean -match '^(\S+)' -and $Matches[1] -eq "Ubuntu-openPJ") {
+            $projectDistro = $Matches[1]
+        }
+    }
+
+    if ($projectDistro) {
+        return $projectDistro
+    }
+
+    if ($defaultDistro) {
+        return $defaultDistro
+    }
+
+    if ($firstDistro) {
+        return $firstDistro
+    }
+
+    throw "No WSL distribution was found. Install Ubuntu or specify -WslDistro."
+}
+
+function Test-WslDistro {
+    param([string]$Distro)
+
+    & wsl.exe -d $Distro -- true
+    if ($LASTEXITCODE -ne 0) {
+        $available = ((& wsl.exe --list --quiet) -replace "`0", "" | Where-Object { $_.Trim() }) -join ", "
+        throw "WSL distro '$Distro' was not found or cannot be started. Available distributions: $available"
+    }
 }
 
 function Test-OpenProjectHostName {
@@ -244,6 +301,13 @@ function Invoke-NetworkSetupAsAdmin {
 if (-not $ListenAddress) {
     $ListenAddress = Get-DefaultListenAddress
 }
+
+if (-not $WslDistro) {
+    $WslDistro = Get-DefaultWslDistro
+    Write-Host "Using default WSL distro: $WslDistro"
+}
+
+Test-WslDistro -Distro $WslDistro
 
 $originalListenAddress = $ListenAddress
 $ListenAddress = Normalize-ListenAddress -Address $ListenAddress
