@@ -2,7 +2,9 @@
   const path = window.location.pathname;
   const isProjectPage = path.includes("/projects/");
   const isGanttPage = path.includes("/gantt");
-  if (!isProjectPage && !isGanttPage) return;
+  const isWorkPackagesPage = path.includes("/work_packages");
+  const canCreateBaseline = isGanttPage || isWorkPackagesPage;
+  if (!isProjectPage && !canCreateBaseline) return;
 
   const project = isProjectPage ? path.split("/projects/")[1]?.split("/")[0] : "all-projects";
   const reportUrl = project ? `/baseline/?project=${encodeURIComponent(project)}` : "/baseline/";
@@ -164,7 +166,7 @@
   };
 
   const isCreateButton = element => {
-    if (!isGanttPage || !element?.matches?.("button, a")) return false;
+    if (!canCreateBaseline || !element?.matches?.("button, a")) return false;
     if (element.id === snapshotButtonId || element.closest(baselineButtonSelector)) return false;
     const values = [
       textOf(element.textContent),
@@ -177,7 +179,7 @@
   const findCreateButton = () => [...document.querySelectorAll("button, a")].find(isCreateButton);
 
   const addSnapshotButton = () => {
-    if (!isGanttPage || document.getElementById(snapshotButtonId)) return;
+    if (!canCreateBaseline || document.getElementById(snapshotButtonId)) return;
     const createButton = findCreateButton();
     if (!createButton?.parentElement) return;
 
